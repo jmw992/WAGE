@@ -21,7 +21,7 @@ def showVariable(keywords=None):
   Vars = tf.global_variables()
   Vars_key = []
   for var in Vars:
-    print var.device,var.name,var.shape,var.dtype
+    print (var.device,var.name,var.shape,var.dtype)
     if keywords is not None:
       if var.name.lower().find(keywords) > -1:
         Vars_key.append(var)
@@ -35,8 +35,8 @@ def main():
   batchSize = Option.batchSize
   pathLog = '../log/' + Option.Time + '(' + Option.Notes + ')' + '.txt'
   Log.Log(pathLog, 'w+', 1) # set log file
-  print time.strftime('%Y-%m-%d %X', time.localtime()), '\n'
-  print open('Option.py').read()
+  print (time.strftime('%Y-%m-%d %X', time.localtime()), '\n' )
+  print ( open('Option.py').read() )
 
   # get data
   numThread = 4*len(GPU)
@@ -95,43 +95,44 @@ def main():
 
   def getErrorTest():
     errorTest = 0.
-    for i in tqdm(xrange(batchNumTest),desc = 'Test', leave=False):
+    for i in tqdm(range(int(batchNumTest)),desc = 'Test', leave=False):
       errorTest += sess.run([errorTestBatch])[0]
-    errorTest /= batchNumTest
+    errorTest /= int(batchNumTest)
     return errorTest
 
   if Option.loadModel is not None:
-    print 'Loading model from %s ...' % Option.loadModel,
+    print ( 'Loading model from %s ...' % Option.loadModel, )
     saver.restore(sess, Option.loadModel)
-    print 'Finished',
+    print ('Finished', )
     errorTestBest = getErrorTest()
-    print 'Test:', errorTestBest
+    print ('Test:', errorTestBest)
 
   else:
     # at the beginning, we discrete W
     sess.run([Net[0].W_q_op])
 
-  print "\nOptimization Start!\n"
-  for epoch in xrange(1000):
+  print ("\nOptimization Start!\n")
+  for epoch in range(Option.numEpochs):
     # check lr_schedule
     if len(Option.lr_schedule) / 2:
       if epoch == Option.lr_schedule[0]:
         Option.lr_schedule.pop(0)
         lr_new = Option.lr_schedule.pop(0)
         if lr_new == 0:
-          print 'Optimization Ended!'
+          print ('Optimization Ended!' )
           exit(0)
         lr_old = sess.run(Option.lr)
         sess.run(Option.lr.assign(lr_new))
-        print 'lr: %f -> %f' % (lr_old, lr_new)
+        print ('lr: %f -> %f' % (lr_old, lr_new) )
 
-    print 'Epoch: %03d ' % (epoch),
+    print ('Epoch: %03d ' % (epoch), end = ' ')
 
 
     lossTotal = 0.
     errorTotal = 0
     t0 = time.time()
-    for batchNum in tqdm(xrange(batchNumTrain), desc='Epoch: %03d' % epoch, leave=False, smoothing=0.1):
+
+    for batchNum in tqdm(range(int(batchNumTrain)), desc='Epoch: %03d' % epoch, leave=False, smoothing=0.1):
       if Option.debug is False:
         _, loss_delta, error_delta = sess.run([train_op, lossTrainBatch, errorTrainBatch])
       else:
@@ -144,23 +145,24 @@ def main():
     lossTotal /= batchNumTrain
     errorTotal /= batchNumTrain
 
-    print 'Loss: %.4f Train: %.4f' % (lossTotal, errorTotal),
+    print ('Loss: %.4f Train: %.4f' % (lossTotal, errorTotal), end = ' ' )
 
     # get test error
     errorTest = getErrorTest()
-    print 'Test: %.4f FPS: %d' % (errorTest, numTrain / (time.time() - t0)),
+    print ('Test: %.4f FPS: %d' % (errorTest, numTrain / (time.time() - t0)), end = ' ')
 
     if epoch == 0:
       errorTestBest = errorTest
     if errorTest < errorTestBest:
       if Option.saveModel is not None:
         saver.save(sess, Option.saveModel)
-        print 'S',
+        print ('S', end = ' ')
     if errorTest < errorTestBest:
       errorTestBest = errorTest
-      print 'BEST',
+      print ('BEST', end = ' ')
 
-    print ''
+
+    print ('')
 
 
 if __name__ == '__main__':

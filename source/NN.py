@@ -1,6 +1,7 @@
 import tensorflow as tf
 import Option
 from tensorflow.contrib.layers import batch_norm
+import functools
 import Quantize
 import myInitializer
 
@@ -14,10 +15,10 @@ class NN(object):
     # if data dype is not float32, we assume that there is no preprocess
     if X.dtype != tf.float32:
       X = tf.cast(X, tf.float32)
-      print 'Input data dype is not float32, perform simple preprocess [0,255]->[-1,1]'
+      print ('Input data dype is not float32, perform simple preprocess [0,255]->[-1,1]' )
       X = X / 127.5 - 1
     else:
-      print 'Input data dype is float32, we assume they are preprocessed already'
+      print ('Input data dype is float32, we assume they are preprocessed already' )
 
     # quantize inputs
     self.H = [X]
@@ -48,11 +49,12 @@ class NN(object):
     self.out = out
     return self._loss(out, self.Y)
 
-
+  # 2×(128C3)-MP2-2×(256C3)-MP2-2×(512C3)-MP2-1024FC-10SSE
   def _VGG7(self):
 
     x = self.H[-1]
 
+    # 2×(128C3)-MP2
     with tf.variable_scope('U0'):
       with tf.variable_scope('C0'):
         x = self._conv(x, 3, 128)
@@ -62,6 +64,7 @@ class NN(object):
         x = self._pool(x, 'MAX', 2, 2)
         x = self._activation(x)
 
+    #2×(256C3)-MP2
     with tf.variable_scope('U1'):
       with tf.variable_scope('C0'):
         x = self._conv(x, 3, 256)
@@ -71,6 +74,7 @@ class NN(object):
         x = self._pool(x, 'MAX', 2, 2)
         x = self._activation(x)
 
+    #2×(512C3) - MP2
     with tf.variable_scope('U2'):
       with tf.variable_scope('C0'):
         x = self._conv(x, 3, 512)
@@ -80,6 +84,7 @@ class NN(object):
         x = self._pool(x, 'MAX', 2, 2)
         x = self._activation(x)
 
+    #-MP2-1024FC
     x = self._reshape(x)
     with tf.variable_scope('FC'):
       x = self._fc(x, 1024, name='fc0')
@@ -146,18 +151,18 @@ class NN(object):
     with tf.name_scope(name) as scope:
       self.W.append(tf.get_variable(name=name, shape=shape, initializer=self.initializer))
 
-      print 'W:', self.W[-1].device, scope, shape,
+      print ('W:', self.W[-1].device, scope, shape, )
       if Quantize.bitsW <= 16:
         # manually clip and quantize W if needed
         self.W_q_op.append(tf.assign(self.W[-1], Quantize.Q(self.W[-1], Quantize.bitsW)))
         self.W_clip_op.append(tf.assign(self.W[-1],Quantize.C(self.W[-1],Quantize.bitsW)))
 
         scale = Option.W_scale[len(self.W)-1]
-        print 'Scale:%d' % scale
+        print ( 'Scale:%d' % scale )
         self.W_q.append(Quantize.W(self.W[-1], scale))
         return self.W_q[-1]
       else:
-        print ''
+        print( '' )
         return self.W[-1]
 
   def _conv(self, x, ksize, c_out, stride=1, padding='SAME', name='conv'):
@@ -191,7 +196,7 @@ class NN(object):
 
   def _reshape(self, x, shape=None):
     if shape == None:
-      shape = reduce(lambda x, y: x * y, x.get_shape().as_list()[1:])
+      shape = functools.reduce(lambda x, y: x * y, x.get_shape().as_list()[1:])
     x = tf.reshape(x, [-1, shape])
     self.H.append(x)
     return x
@@ -202,11 +207,11 @@ class NN(object):
     for var in tf.trainable_variables():
       name_lowcase = var.op.name.lower()
       if name_lowcase.find('fc') > -1:
-        total_parameters_fc += reduce(lambda x, y: x * y, var.get_shape().as_list())
+        total_parameters_fc += functools.reduce(lambda x, y: x * y, var.get_shape().as_list())
       elif name_lowcase.find('conv') > -1:
-        total_parameters_conv += reduce(lambda x, y: x * y, var.get_shape().as_list())
+        total_parameters_conv += functools.reduce(lambda x, y: x * y, var.get_shape().as_list())
     total_parameters = total_parameters_fc + total_parameters_conv
-    print 'CONV: %d FC: %d Total: %d' % (total_parameters_conv,total_parameters_fc,total_parameters)
+    print ('CONV: %d FC: %d Total: %d' % (total_parameters_conv,total_parameters_fc,total_parameters) )
     return total_parameters
 
   def _L2(self):

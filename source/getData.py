@@ -10,7 +10,7 @@ def preprocess(x, train=False):
       x = tf.random_crop(x, [32, 32, 3])
       x = tf.image.random_flip_left_right(x)
   else:
-    print 'Unkown dataset',dataSet,'no preprocess'
+    print ( 'Unkown dataset',dataSet,'no preprocess' )
   x = tf.transpose(x, [2, 0, 1]) # from HWC to CHW
   return x
 
@@ -53,15 +53,15 @@ def data2Queue(dataX, dataY, batchSize, numThreads, shuffle=False, isTraining=Tr
 
   if shuffle:
     batchX, batchY = tf.train.shuffle_batch([sampleX_, sampleY],
-                                            batch_size=batchSize,
-                                            num_threads=numThreads, capacity=dataX.shape[0],
-                                            min_after_dequeue=dataX.shape[0] / 2,
-                                            seed=seed)
+                                            batch_size=int( batchSize ),
+                                            num_threads= int( numThreads ), capacity=int (dataX.shape[0] ),
+                                            min_after_dequeue=int (dataX.shape[0] / 2 ),
+                                            seed=seed )
   else:
     batchX, batchY = tf.train.batch([sampleX_, sampleY],
-                                    batch_size=batchSize,
+                                    batch_size=int(batchSize),
                                     num_threads=numThreads,
-                                    capacity=dataX.shape[0])
+                                    capacity=int( dataX.shape[0]) )
 
   return batchX, batchY
 
