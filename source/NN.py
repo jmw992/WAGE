@@ -42,7 +42,12 @@ class NN(object):
 
   def build_graph(self):
     if Option.dataSet == 'CIFAR10':
-      out = self._VGG7()
+      if Option.layerArchitecture == 'VGG7':
+        out = self._VGG7()
+      if Option.layerArchitecture == 'LeNet5':
+        out = self._LeNet5()
+      if Option.layerArchitecture == 'jacobTestArchitecture':
+        out = self._JacobTestArchitecture()
     else:
       assert False, 'None network model is defined!'
 
@@ -57,6 +62,78 @@ class NN(object):
     # 2×(128C3)-MP2
     with tf.variable_scope('U0'):
       with tf.variable_scope('C0'):
+        x = self._conv(x, 3, int(Option.batchSize))
+        x = self._activation(x)
+      with tf.variable_scope('C1'):
+        x = self._conv(x, 3, int(Option.batchSize))
+        x = self._pool(x, 'MAX', 2, 2)
+        x = self._activation(x)
+
+    #2×(256C3)-MP2
+    with tf.variable_scope('U1'):
+      with tf.variable_scope('C0'):
+        x = self._conv(x, 3, int(Option.batchSize*2))
+        x = self._activation(x)
+      with tf.variable_scope('C1'):
+        x = self._conv(x, 3, int(Option.batchSize*2))
+        x = self._pool(x, 'MAX', 2, 2)
+        x = self._activation(x)
+
+    #2×(512C3) - MP2
+    with tf.variable_scope('U2'):
+      with tf.variable_scope('C0'):
+        x = self._conv(x, 3, int(Option.batchSize*4))
+        x = self._activation(x)
+      with tf.variable_scope('C1'):
+        x = self._conv(x, 3, int(Option.batchSize*4))
+        x = self._pool(x, 'MAX', 2, 2)
+        x = self._activation(x)
+
+    #-MP2-1024FC
+    x = self._reshape(x)
+    with tf.variable_scope('FC'):
+      x = self._fc(x, int(Option.batchSize*8), name='fc0')
+      x = self._activation(x)
+      x = self._fc(x, self.shapeY[1], name='fc1')
+
+    # for last layer(first layer in backpro) error input quantization
+    with tf.variable_scope('last'):
+      x = self._QE(x)
+
+    return x
+
+  # Made by Anil Gaddam
+  def _LeNet5(self):
+
+    x = self.H[-1]
+    with tf.variable_scope('Conv'):
+      x = self._conv(x, 5, 128, padding='VALID', name='conv0')
+      x = self._pool(x, 'MAX', 2, 2)
+      x = self._activation(x)
+      x = self._conv(x, 5, 512, padding='VALID', name='conv1')
+      x = self._pool(x, 'MAX', 2, 2)
+      x = self._activation(x)
+
+    x = self._reshape(x)
+
+    with tf.variable_scope('Fc'):
+      x = self._fc(x, 1024, name='fc0')
+      x = self._activation(x)
+      x = self._fc(x, self.shapeY[1], name='fc1')
+
+    x = self._QA(x)
+    x = self._QE(x)
+
+    return x
+
+  # 2×(128C3)-MP2-2×(256C3)-MP2-2×(512C3)-MP2-1024FC-10SSE
+  def _JacobTestArchitecture(self):
+
+    x = self.H[-1]
+
+    # 2×(128C3)-MP2
+    with tf.variable_scope('U0'):
+      with tf.variable_scope('C0'):
         x = self._conv(x, 3, 128)
         x = self._activation(x)
       with tf.variable_scope('C1'):
@@ -64,7 +141,7 @@ class NN(object):
         x = self._pool(x, 'MAX', 2, 2)
         x = self._activation(x)
 
-    #2×(256C3)-MP2
+    # 2×(256C3)-MP2
     with tf.variable_scope('U1'):
       with tf.variable_scope('C0'):
         x = self._conv(x, 3, 256)
@@ -74,7 +151,7 @@ class NN(object):
         x = self._pool(x, 'MAX', 2, 2)
         x = self._activation(x)
 
-    #2×(512C3) - MP2
+    # 2×(512C3) - MP2
     with tf.variable_scope('U2'):
       with tf.variable_scope('C0'):
         x = self._conv(x, 3, 512)
@@ -84,7 +161,7 @@ class NN(object):
         x = self._pool(x, 'MAX', 2, 2)
         x = self._activation(x)
 
-    #-MP2-1024FC
+    # -MP2-1024FC
     x = self._reshape(x)
     with tf.variable_scope('FC'):
       x = self._fc(x, 1024, name='fc0')
@@ -96,8 +173,6 @@ class NN(object):
       x = self._QE(x)
 
     return x
-
-
   def _loss(self, out, labels):
     labels = tf.cast(labels,tf.float32)
 
@@ -167,6 +242,7 @@ class NN(object):
 
   def _conv(self, x, ksize, c_out, stride=1, padding='SAME', name='conv'):
     c_in = x.get_shape().as_list()[1]
+    # W is 4-D tensor w/ shape [filter height, filter_width, in_channels, out_channels]
     W = self._get_variable([ksize, ksize, c_in, c_out], name)
     x = tf.nn.conv2d(x, W, self._arr(stride), padding=padding, data_format='NCHW', name=name)
     self.H.append(x)
