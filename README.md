@@ -1,6 +1,7 @@
-# Training and Inference with Integers in Deep Neural Networks
+# Training and Inference with Integers in Deep Neural Networks - Ablation Study
 
 Code example for the ICLR 2018 oral paper
+I've taken the code commented it up a bit more, made it python 3 compatible, added some more options, and linked the options 
 
 ## Prerequisites
 - NVIDIA GPU + CUDA + CuDNN
